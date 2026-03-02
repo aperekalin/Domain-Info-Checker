@@ -35,7 +35,13 @@ import requests
 
 DOMAIN_INFO_ENDPOINT = "https://domain-info.whoisxmlapi.com/api/v1"  # :contentReference[oaicite:3]{index=3}
 
-OUT_COLUMNS = ["createdDate", "registrarName", "Registrant_name", "Registrant_country"]
+OUT_COLUMNS = [
+    "createdDate",
+    "registrarName",
+    "Registrant_name",
+    "Registrant_email",   # ← new column (placed after name)
+    "Registrant_country",
+]
 
 
 # ---- Domain parsing / validation ----
@@ -157,6 +163,7 @@ class DomainInfoResult:
     created_date: Optional[str]
     registrar_name: Optional[str]
     registrant_name: Optional[str]
+    registrant_email: Optional[str]   # ← new
     registrant_country: Optional[str]
 
 
@@ -179,6 +186,7 @@ def extract_requested_fields(payload: Dict[str, Any]) -> DomainInfoResult:
     registrar = _pick_first(data_map, ["registrarName"])
 
     registrant_name = _pick_first(reg_map, ["name"])
+    registrant_email = _pick_first(reg_map, ["email"])
     registrant_country = _pick_first(reg_map, ["country", "countryCode"])
 
     # Cast to strings for CSV friendliness
@@ -194,6 +202,7 @@ def extract_requested_fields(payload: Dict[str, Any]) -> DomainInfoResult:
         created_date=_to_str(created),
         registrar_name=_to_str(registrar),
         registrant_name=_to_str(registrant_name),
+        registrant_email=_to_str(registrant_email),   # ← new
         registrant_country=_to_str(registrant_country),
     )
 
@@ -352,16 +361,17 @@ def main(argv: List[str]) -> int:
         result = extract_requested_fields(resp)
 
         row[col_idx["createdDate"]] = result.created_date or ""
-        row[col_idx["registrarName"]] = result.registrar_name or ""
         row[col_idx["Registrant_name"]] = result.registrant_name or ""
+        row[col_idx["Registrant_email"]] = result.registrant_email or ""
         row[col_idx["Registrant_country"]] = result.registrant_country or ""
 
         print(
             f"[{domain}] OK | createdDate={row[col_idx['createdDate']]} | "
             f"registrarName={row[col_idx['registrarName']]} | "
             f"Registrant_name={row[col_idx['Registrant_name']]} | "
+            f"Registrant_email={row[col_idx['Registrant_email']]} | "
             f"Registrant_country={row[col_idx['Registrant_country']]}"
-        )
+)
 
         updated_rows.append(row)
 
