@@ -201,14 +201,27 @@ def extract_requested_fields(payload: Dict[str, Any]) -> DomainInfoResult:
 # ---- CSV helpers ----
 
 def detect_dialect(path: str) -> csv.Dialect:
+    """
+    Robust dialect detection:
+    - Only allow common CSV delimiters: comma, tab, semicolon, pipe.
+    - If none are present, default to comma.
+    """
+    allowed_delims = [",", "\t", ";", "|"]
+
     with open(path, "r", newline="", encoding="utf-8-sig") as f:
         sample = f.read(8192)
-        f.seek(0)
-        try:
-            return csv.Sniffer().sniff(sample)
-        except Exception:
-            # Default to excel dialect (comma-delimited)
-            return csv.get_dialect("excel")
+
+    # If the file doesn't appear to contain any common delimiter, it's likely a 1-column file.
+    if not any(d in sample for d in allowed_delims):
+        return csv.get_dialect("excel")  # comma
+
+    # Try Sniffer but restrict delimiters to safe ones
+    sniffer = csv.Sniffer()
+    try:
+        dialect = sniffer.sniff(sample, delimiters=allowed_delims)
+        return dialect
+    except Exception:
+        return csv.get_dialect("excel")  # comma fallback
 
 
 def looks_like_header(first_cell: str) -> bool:
@@ -354,8 +367,8 @@ def main(argv: List[str]) -> int:
 
     # Write back to same file
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f, dialect)
-        writer.writerows(updated_rows)
+      writer = csv.writer(f, delimiter=",")
+      writer.writerows(updated_rows)
 
     print(f"Completed. Updated CSV saved: {csv_path}")
     return 0
